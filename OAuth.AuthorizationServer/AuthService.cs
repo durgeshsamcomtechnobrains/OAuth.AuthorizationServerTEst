@@ -7,7 +7,7 @@ namespace OAuth.AuthorizationServer
 {
     public class AuthService
     {
-        public static List<string> GetDestinations(Claim claim)
+        public static List<string> GetDestinations(ClaimsIdentity identity, Claim claim)
         {
             var destinations = new List<string>();
 
@@ -16,25 +16,27 @@ namespace OAuth.AuthorizationServer
                 destinations.Add(OpenIddictConstants.Destinations.AccessToken);
             }
             return destinations;
-        }
-        public string BuilderRedirectUrl(HttpRequest request, IDictionary<string, StringValues> parameters)
-        {
-            var url = request.PathBase + request.Path + QueryString.Create(parameters);
-
-            return url;
         }        
+        public string BuildRedirectUrl(HttpRequest request, IDictionary<string, StringValues> oAuthParameters)
+        {
+            var url = request.PathBase + request.Path + QueryString.Create(oAuthParameters);
+            return url;
+        }
         public IDictionary<string, StringValues> ParseOAuthParameters(HttpContext httpContext, List<string>? excluding = null)
         {
+            excluding ??= new List<string>();
+
             var parameters = httpContext.Request.HasFormContentType
                 ? httpContext.Request.Form
-                    .Where(parameter => !excluding.Contains(parameter.Key))
-                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value)
+                    .Where(v => !excluding.Contains(v.Key))
+                    .ToDictionary(v => v.Key, v => v.Value)
                 : httpContext.Request.Query
-                    .Where(parameter => !excluding.Contains(parameter.Key))
-                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                    .Where(v => !excluding.Contains(v.Key))
+                    .ToDictionary(v => v.Key, v => v.Value);
 
             return parameters;
         }
+
         public bool IsAuthenticated(AuthenticateResult authenticateResult, OpenIddictRequest request)
         {
             if (!authenticateResult.Succeeded)
@@ -44,16 +46,18 @@ namespace OAuth.AuthorizationServer
 
             if (request.MaxAge.HasValue && authenticateResult.Properties != null)
             {
-                var maxAgeSecond = TimeSpan.FromSeconds(request.MaxAge.Value);
-                var expired = !authenticateResult.Properties.IssuedUtc.HasValue ||
-                    DateTimeOffset.UtcNow - authenticateResult.Properties.IssuedUtc > maxAgeSecond;
+                var maxAgeSeconds = TimeSpan.FromSeconds(request.MaxAge.Value);
 
+                var expired = !authenticateResult.Properties.IssuedUtc.HasValue ||
+                              DateTimeOffset.UtcNow - authenticateResult.Properties.IssuedUtc > maxAgeSeconds;
                 if (expired)
                 {
                     return false;
                 }
             }
+
             return true;
         }
+
     }
 }

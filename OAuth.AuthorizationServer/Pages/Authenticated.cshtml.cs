@@ -8,12 +8,14 @@ namespace OAuth.AuthorizationServer.Pages
 {
     public class AuthenticatedModel : PageModel
     {
-        public string Email { get; set; }
-        public string Password { get; set; }
+        public string Email { get; set; } = Consts.Email;
+
+        public string Password { get; set; } = Consts.Password;
 
         [BindProperty]
-        public string ReturnUrl { get; set; }
-        public string AuthStatus { get; set; }
+        public string? ReturnUrl { get; set; }
+
+        public string AuthStatus { get; set; } = "";
 
         public IActionResult OnGet(string returnUrl)
         {
@@ -23,21 +25,23 @@ namespace OAuth.AuthorizationServer.Pages
 
         public async Task<IActionResult> OnPostAsync(string email, string password)
         {
-            if (Email != Consts.Email || password != Consts.Password)
+            if (email != Consts.Email || password != Consts.Password)
             {
-                AuthStatus = "cannot authenticated";
+                AuthStatus = "Email or password is invalid";
                 return Page();
             }
 
             var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Email, email),
-            };
+      {
+            new(ClaimTypes.Email, email),
+      };
+
             var principal = new ClaimsPrincipal(
-                new List<ClaimsIdentity>
-                {
-                    new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)
-                });
+                  new List<ClaimsIdentity>
+                  {
+               new(claims, CookieAuthenticationDefaults.AuthenticationScheme)
+                  });
+
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
 
             if (!string.IsNullOrEmpty(ReturnUrl))
@@ -45,7 +49,7 @@ namespace OAuth.AuthorizationServer.Pages
                 return Redirect(ReturnUrl);
             }
 
-            AuthStatus = "Authenticated";
+            AuthStatus = "Successfully authenticated";
             return Page();
         }
     }

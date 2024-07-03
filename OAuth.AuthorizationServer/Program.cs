@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using OAuth.AuthorizationServer.Data;
+using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace OAuth.AuthorizationServer
 {
@@ -10,80 +13,91 @@ namespace OAuth.AuthorizationServer
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
-
-            builder.Services.AddControllersWithViews();
-            builder.Services.AddControllers();
-            builder.Services.AddRazorPages();
-
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
             {
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnectionString"));
                 options.UseOpenIddict();
             });
 
+            // Add services to the container.                     
+
             builder.Services.AddOpenIddict()
-                .AddCore(options =>
-                {
-                    options.UseEntityFrameworkCore()
-                    .UseDbContext<ApplicationDbContext>();
-                })
-                .AddServer(options =>
-                {
-                    options
-                    .SetAuthorizationEndpointUris("connect/authorize")
-                    .SetLogoutEndpointUris("connect/logout")
-                    .SetTokenEndpointUris("connect/token");
+             .AddCore(options =>
+             {
+                 options.UseEntityFrameworkCore()
+                         .UseDbContext<ApplicationDbContext>();
+             })
+             .AddServer(options =>
+             {
+                 options.SetAuthorizationEndpointUris("connect/authorize")
+                         .SetLogoutEndpointUris("connect/logout")
+                         .SetTokenEndpointUris("connect/token");
 
-                    options.AllowAuthorizationCodeFlow();
+                 options.RegisterScopes(Scopes.Email, Scopes.Profile, Scopes.Roles);
 
-                    options.AddDevelopmentEncryptionCertificate()
-                           .AddDevelopmentEncryptionCertificate();
+                 options.AllowAuthorizationCodeFlow();
 
-                    options.UseAspNetCore()
-                    .EnableLogoutEndpointPassthrough()
-                    .EnableAuthorizationEndpointPassthrough()
-                    .EnableTokenEndpointPassthrough();
-                })
-                .AddValidation(options =>
-                {
-                    options.UseLocalServer();
-                    options.UseAspNetCore();
-                });
+                 options.AddEncryptionKey(new SymmetricSecurityKey(
+                     Convert.FromBase64String("DRjd/GnduI3Efzen9V9BvbNUfc/VKgXltV7Kbk9sMkY=")));
 
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+                 options.AddDevelopmentEncryptionCertificate()
+                         .AddDevelopmentSigningCertificate();
 
-            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-                .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme);
+                 options.UseAspNetCore()
+                         .EnableAuthorizationEndpointPassthrough()
+                         .EnableLogoutEndpointPassthrough()
+                         .EnableTokenEndpointPassthrough();
+             });
 
             builder.Services.AddTransient<AuthService>();
+
+            builder.Services.AddControllers();
+            builder.Services.AddRazorPages();
+
+            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie(c =>
+                {
+                    c.LoginPath = "/Authenticated";
+                });
+
             builder.Services.AddTransient<ClientsSeeder>();
+
+            builder.Services.AddEndpointsApiExplorer();
+
+            builder.Services.AddSwaggerGen();
+
+            builder.Services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(policy =>
+                {
+                    policy.WithOrigins("https://localhost:7002")
+                        .AllowAnyHeader();
+                });
+            });
 
             var app = builder.Build();
 
-            using (var scope = app.Services.CreateScope())
+            using (var scope = app.Services.CreateScope())            
             {
-                var seeder = scope.ServiceProvider.GetRequiredService<ClientsSeeder>();
-                seeder.Addclients().GetAwaiter().GetResult();
+                var seeder = scope.ServiceProvider.GetRequiredService<ClientsSeeder>();                
+                seeder.AddClients().GetAwaiter().GetResult();
+                seeder.AddScopes().GetAwaiter().GetResult();                
             }
-
-            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
-
             app.UseHttpsRedirection();
+
+            app.UseCors();
 
             app.UseAuthentication();
             app.UseAuthorization();
 
-            app.MapRazorPages();
             app.MapControllers();
-
+            app.MapRazorPages();
+            
             app.Run();
         }
     }

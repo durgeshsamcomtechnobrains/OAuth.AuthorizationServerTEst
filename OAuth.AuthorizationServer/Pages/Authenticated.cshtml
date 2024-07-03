@@ -1,8 +1,12 @@
 ﻿@page
-@model OAuth.AuthorizationServer.Pages.AuthenticatedModel
-@{
-}
 
+@model OAuth.AuthorizationServer.Pages.AuthenticatedModel
+
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+@{
+
+}
 Authenticate
 
 <div>@Model.AuthStatus</div>
@@ -11,6 +15,5 @@ Authenticate
 <form method="post">
     <input name="email" value="@Model.Email" />
     <input name="password" value="@Model.Password" />
-
     <input type="submit" />
 </form>

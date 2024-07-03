@@ -9,7 +9,8 @@ namespace OAuth.AuthorizationServer.Pages
     public class ConsentModel : PageModel
     {
         [BindProperty]
-        public string ReturnUrl { get; set; }
+        public string? ReturnUrl { get; set; }
+
         public IActionResult OnGet(string returnUrl)
         {
             ReturnUrl = returnUrl;
@@ -18,18 +19,9 @@ namespace OAuth.AuthorizationServer.Pages
 
         public async Task<IActionResult> OnPostAsync(string grant)
         {
-            if (grant != Consts.GrantAccessValue)
-            {
-                return Forbid();
-            }
+            User.SetClaim(Consts.ConsentNaming, grant);
 
-            var consentClaim = User.GetClaim(Consts.ConsentNaming);
-
-            if (string.IsNullOrEmpty(consentClaim))
-            {
-                User.SetClaim(Consts.ConsentNaming, grant);
-                await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, User);
-            }
+            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, User);
             return Redirect(ReturnUrl);
         }
     }
